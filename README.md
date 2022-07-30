@@ -2,7 +2,9 @@
 
 Manual single cell library preps are tedious and error-prone. Automated solutions are expensive up-front. This repo contains all code & hardware required to automate 10x Genomics library preps on the Opentrons platform for $26k.
 
-<img src="https://github.com/retrobiosciences/opentrons-10x/blob/main/homebrew-connect.jpeg" alt="homebrew connect" width="200px">
+<p align="center">
+	<img src="https://github.com/retrobiosciences/opentrons-10x/blob/main/homebrew-connect.jpeg" alt="homebrew connect" width="500px">
+</p>
 
 ### Protocol:
 
