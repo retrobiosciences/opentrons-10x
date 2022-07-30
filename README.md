@@ -11,11 +11,13 @@ Manual single cell library preps are tedious and error-prone. Automated solution
 Prepping 8 libraries involves 2 hours of human labor[^1]. 
 
 Step 1: GEM Generation & Barcoding is performed manually using [an automated pump](https://www.10xgenomics.com/instruments/chromium-controller)
+
 Step 2:  (1:30)
 - Pipette GEMs into PCR plate, add pink separation agent, wait 2 minutes, remove separation agent
 - Load reagents, plates, and labware
 - Begin automated portion
 - Return within 24 hours to begin Step 3
+
 Step 3: (4:30-5:00)
 - If multiplexing:
 	- reload pipette tips
@@ -23,7 +25,8 @@ Step 3: (4:30-5:00)
 - Quantify DNA [^2]
 	- update json file with appropriate PCR cycle count
 - Collect prepped sample within 24 hours of completion (held at 4C in PCR plate indefinitely)
-Send sample off for sequencing
+
+Sequencing
 
 ---
 
