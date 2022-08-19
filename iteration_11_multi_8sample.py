@@ -1,10 +1,11 @@
-from opentrons import protocol_api
+import datetime  # for more timing
+import json
+import time  # for countdown timing
+
 import opentrons.execute
 import opentrons.simulate
-from opentrons import types #for custom pipette positioning
-import time #for countdown timing
-import datetime #for more timing
-import json
+from opentrons import types  # for custom pipette positioning
+from opentrons import protocol_api
 
 metadata = {"apiLevel" : "2.12"}
 protocol = opentrons.execute.get_protocol_api('2.12')
@@ -12,10 +13,13 @@ protocol = opentrons.execute.get_protocol_api('2.12')
 protocol.home()
 
 ## LOADED VOLUMES ##
-spri_stock_vol  = 4000  #3600 required, 5k for safety
-eb_stock_vol    = 4000  #1928 required, 5k for safety
-elu_stock_vol   = 2000  #this value does not effect multi setup, lots extra required for multi reservior
-eth_stock_vol   = 20000 #24400 required, 27.5k for safety. Value is lower to account for evaporation
+STATE = dict(
+    spri_stock_vol  = 4000,  # 3600 required, 5k for safety
+    eb_stock_vol    = 4000,  # 1928 required, 5k for safety
+    elu_stock_vol   = 2000,  # this value does not effect multi setup, lots extra required for multi reservior
+    eth_stock_vol   = 20000, # 24400 required, 27.5k for safety. Value is lower to account for evaporation
+)
+
 
 def run(protocol: protocol_api.ProtocolContext):
     
@@ -28,7 +32,7 @@ def run(protocol: protocol_api.ProtocolContext):
     t300_3 = protocol.load_labware('opentrons_96_tiprack_300ul', 11)
     r15 = protocol.load_labware('nest_12_reservoir_15ml', 3)
     mag = protocol.load_module('magnetic module gen2', 4)
-    with open('custommagplate96s_96_wellplate_100ul.json') as labware_file: #labware def with this title in directory
+    with open('custommagplate96s_96_wellplate_100ul.json') as labware_file: # labware def with this title in directory
         labware_def = json.load(labware_file)
         mag_plate = mag.load_labware_from_definition(labware_def)
     tc = protocol.load_module("thermocycler module", configuration='semi')
@@ -43,9 +47,9 @@ def run(protocol: protocol_api.ProtocolContext):
     p300 = protocol.load_instrument('p300_multi_gen2', mount = 'right', tip_racks=t300_racks)
 
     ## SETUP ##
-    p300.starting_tip=t300_0['A1']        #accomidates SPRIselect mixing tip reuse 
+    p300.starting_tip=t300_0['A1']        # accomodates SPRIselect mixing tip reuse 
 
-   ## OFFSETS ##
+    ## OFFSETS ##
     t20_0.set_offset(x=-0.1, y=1.0, z=-7.1)
     t20_1.set_offset(x=0.2, y=0.8, z=-7.1)
     t300_0.set_offset(x=0.4, y=0.5, z=-6.8)
@@ -59,18 +63,17 @@ def run(protocol: protocol_api.ProtocolContext):
     mag_plate.set_offset(x=-0.1, y=0.7, z=-0.3)
 
     ## MAG WET CALIBRATION ##
-    mag_z = 16.0                        #mag pelleting height
-    well_300_nomag = (0, 0, -19.8)      #
+    mag_z = 16.0                        # mag pelleting height
+    well_300_nomag = (0, 0, -19.8)
     well_300_mag   = (-0.1, 0.5, -16.7)
     well_20_nomag  = (0, 0, -19.8)
     well_20_mag    = (-0.1, 0.5, -16.7)
 
     ## SUBMETHODS ##
-    def getEthStock():
-        global eth_stock_vol
-        if eth_stock_vol > 20000:
+    def get_eth_stock():
+        if STATE['eth_stock_vol'] > 20000:
             return eth_stock
-        elif eth_stock_vol > 10000:
+        elif STATE['eth_stock_vol'] > 10000:
             return eth2_stock
         else:
             return eth3_stock
@@ -78,24 +81,27 @@ def run(protocol: protocol_api.ProtocolContext):
     def eth_wash_drain(
         _eth_stock: protocol_api.labware.Well,
         _well: protocol_api.labware.Well,
-        _w = []): #_w is array of wash volumes: [300, 200] for 2-stage wash with 2 dif. volumes
-        
-        global eth_stock_vol
+        _w = []
+    ): 
+        """_w is array of wash volumes: [300, 200] for 2-stage wash with 2 dif. volumes"""
 
-        _well_300_mag = _well.top().move(types.Point(
-            x=well_300_mag[0],
-            y=well_300_mag[1],
-            z=well_300_mag[2]))
+        _well_300_mag = _well.top().move(
+            types.Point(
+                x=well_300_mag[0],
+                y=well_300_mag[1],
+                z=well_300_mag[2]
+            )
+        )
 
         for w in _w:
             p300.pick_up_tip()
-            #Below spaghetti code accounts for max tip volume of 250ul, allows for washes @300ul as per protocol
+            # Below spaghetti code accounts for max tip volume of 250ul, allows for washes @300ul as per protocol
             if w <= 230:
-                p300.aspirate(w, _eth_stock.bottom(z=2))    #Pull from above bottom of eth stock to prevent vacuum
+                p300.aspirate(w, _eth_stock.bottom(z=2))    # Pull from above bottom of eth stock to prevent vacuum
                 p300.move_to(_eth_stock.top(z=5))           #
                 p300.air_gap(20)                            #
                 p300.touch_tip()                            #
-                protocol.delay(seconds=3)                   #allows drips from low-viscosity liquid
+                protocol.delay(seconds=3)                   # allows drips from low-viscosity liquid
                 p300.move_to(_well.top())
                 p300.dispense(w, _well_300_mag, rate=0.2) 
                 p300.move_to(_well.top())
@@ -120,13 +126,13 @@ def run(protocol: protocol_api.ProtocolContext):
             else:
                 _awash = 230
 
-            print("current eth_stock: " + str(eth_stock_vol))
-            eth_stock_vol = eth_stock_vol - (w*8)
-            print("subtracted eth_stock: " + str(eth_stock_vol))
+            print("current eth_stock: " + str(STATE['eth_stock_vol']))
+            STATE['eth_stock_vol'] -= (w*8)
+            print("subtracted eth_stock: " + str(STATE['eth_stock_vol']))
             
             print("eth wash starting:")
             print(datetime.datetime.now())
-            wash_time = 20                      #20 sec wash time, 10 sec mag sep time (perhaps excessive?)
+            wash_time = 20                      # 20 sec wash time, 10 sec mag sep time (perhaps excessive?)
             wash_start = time.monotonic()
             while time.monotonic() < wash_start + wash_time:
                 p300.aspirate(_awash, _well_300_mag, rate=0.2)
@@ -153,7 +159,8 @@ def run(protocol: protocol_api.ProtocolContext):
         _vol: float,
         _dest: types.Point,
         _blow_pos: types.Point,
-        _reps: int):
+        _reps: int
+    ):
         for _ in range(_reps):
             p20.aspirate(_vol, _asp_pos, rate=_asp_spd)
             protocol.delay(seconds=0.5)
@@ -165,8 +172,8 @@ def run(protocol: protocol_api.ProtocolContext):
             p20.blow_out(_blow_pos)
             p20.touch_tip()
 
-    #use p20 with pre-loaded tip before calling (reduce tip waste)
-    #resolves with fresh p20 loaded in every condition
+    # use p20 with pre-loaded tip before calling (reduce tip waste)
+    # resolves with fresh p20 loaded in every condition
     def resusp_pel_mix_inc_mag(
         _mag_well: protocol_api.labware.Well,
         _mix_vol: float,
@@ -204,7 +211,7 @@ def run(protocol: protocol_api.ProtocolContext):
         p300.drop_tip()
         protocol.delay(seconds=_mag_sec)
 
-    #position is adjustment from bottom of well
+    # position is adjustment from bottom of well
     def getMagWellHeight(vol: float):
         if vol <= 100:
             return vol*0.08
@@ -224,10 +231,10 @@ def run(protocol: protocol_api.ProtocolContext):
         return 0
 
     def spri_stock_mix():
-        if spri_stock_vol < 2000:
+        if STATE['spri_stock_vol'] < 2000:
             for _ in range(20):
-                p300.aspirate(spri_stock_vol/8 - 10, spri_stock.bottom(z=1), rate = 2.0)
-                p300.dispense(spri_stock_vol/8 - 10, spri_stock.bottom(z=1), rate = 2.0)
+                p300.aspirate(STATE['spri_stock_vol']/8 - 10, spri_stock.bottom(z=1), rate = 2.0)
+                p300.dispense(STATE['spri_stock_vol']/8 - 10, spri_stock.bottom(z=1), rate = 2.0)
             p300.move_to(spri_stock.top())
             protocol.delay(seconds=1)
             p300.touch_tip()
@@ -250,32 +257,36 @@ def run(protocol: protocol_api.ProtocolContext):
     def spri_stock_mix_transfer(
         vol: float,
         dest: protocol_api.labware.Well,
-        dest_vol: float):
-
-        #position adjustments have local scope so specific `dest` well can be referenced
-        _well_300 = dest.top().move(types.Point(
-            x=well_300_nomag[0],
-            y=well_300_nomag[1],
-            z=well_300_nomag[2]))
-        _well_20  = dest.top().move(types.Point(
-            x=well_20_nomag[0],
-            y=well_20_nomag[1],
-            z=well_20_nomag[2]))
-        
-        global spri_stock_vol
+        dest_vol: float
+    ):
+        # position adjustments have local scope so specific `dest` well can be referenced
+        _well_300 = dest.top().move(
+            types.Point(
+                x=well_300_nomag[0],
+                y=well_300_nomag[1],
+                z=well_300_nomag[2]
+                )
+            )
+        _well_20  = dest.top().move(
+            types.Point(
+                x=well_20_nomag[0],
+                y=well_20_nomag[1],
+                z=well_20_nomag[2]
+            )
+        )
 
         if vol > 250 or vol < 0:
             raise Exception ("SPRI transfer volume must be between 0 and 250ul")
 
         if vol <= 40:
-            #mix:
+            # mix:
             spri_stock_mix()
-            #pre-wet
+            # pre-wet
             for _ in range(1):
-                p20.aspirate(20, spri_stock.bottom(z=getEppendorf_1_5Height(spri_stock_vol)))
-                p20.dispense(20, spri_stock.bottom(z=getEppendorf_1_5Height(spri_stock_vol)))
+                p20.aspirate(20, spri_stock.bottom(z=getEppendorf_1_5Height(STATE['spri_stock_vol'])))
+                p20.dispense(20, spri_stock.bottom(z=getEppendorf_1_5Height(STATE['spri_stock_vol'])))
             if vol <= 20:
-                p20.aspirate(vol, spri_stock.bottom(z=getEppendorf_1_5Height(spri_stock_vol - vol)), rate=0.25)
+                p20.aspirate(vol, spri_stock.bottom(z=getEppendorf_1_5Height(STATE['spri_stock_vol'] - vol)), rate=0.25)
                 protocol.delay(seconds=1)
                 p20.move_to(spri_stock.top(), speed=10)
                 p20.dispense(vol, _well_20.move(types.Point(z=getMagWellHeight(dest_vol + vol))), rate=1.0)
@@ -286,7 +297,7 @@ def run(protocol: protocol_api.ProtocolContext):
                 p20.move_to(dest.top())
             else:
                 for i in range(2):
-                    p20.aspirate(vol/2, spri_stock.bottom(z=getEppendorf_1_5Height(spri_stock_vol - i*(vol/2))), rate=0.25)
+                    p20.aspirate(vol/2, spri_stock.bottom(z=getEppendorf_1_5Height(STATE['spri_stock_vol'] - i*(vol/2))), rate=0.25)
                     protocol.delay(seconds=1)
                     p20.move_to(spri_stock.top(), speed=10)
                     p20.dispense(vol/2, _well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i+1)*(vol/2)))), rate=1.0)
@@ -299,12 +310,12 @@ def run(protocol: protocol_api.ProtocolContext):
                     p20.drop_tip()
                     p20.pick_up_tip()
         else:
-            #mix:
+            # mix:
             spri_stock_mix()
             for _ in range(1):
-                p300.aspirate(vol, spri_stock.bottom(z=getEppendorf_1_5Height(spri_stock_vol)))
-                p300.dispense(vol, spri_stock.bottom(z=getEppendorf_1_5Height(spri_stock_vol)))
-            p300.aspirate(vol, spri_stock.bottom(z=getEppendorf_1_5Height(spri_stock_vol - vol)), rate = 0.2)
+                p300.aspirate(vol, spri_stock.bottom(z=getEppendorf_1_5Height(STATE['spri_stock_vol'])))
+                p300.dispense(vol, spri_stock.bottom(z=getEppendorf_1_5Height(STATE['spri_stock_vol'])))
+            p300.aspirate(vol, spri_stock.bottom(z=getEppendorf_1_5Height(STATE['spri_stock_vol'] - vol)), rate = 0.2)
             protocol.delay(seconds=1)
             p300.move_to(spri_stock.top(), speed=10)
             p300.dispense(vol, _well_300.move(types.Point(z=getMagWellHeight(dest_vol + vol))), rate=0.2)
@@ -316,25 +327,22 @@ def run(protocol: protocol_api.ProtocolContext):
             p300.drop_tip()
             p300.pick_up_tip()
 
+        print("current spri_stock: " + str(STATE['spri_stock_vol']))
+        STATE['spri_stock_vol'] -= vol*8
+        print("subtracted spri_stock: " + str(STATE['spri_stock_vol']))
 
-       
-
-        print("current spri_stock: " + str(spri_stock_vol))
-        spri_stock_vol = spri_stock_vol - vol*8
-        print("subtracted spri_stock: " + str(spri_stock_vol))
-
-        
     
     def cDNA_transfer(
         source: protocol_api.labware.Well,
         vol: float,
         dest: protocol_api.labware.Well,
-        dest_vol: float):
+        dest_vol: float
         #source: 8-tube strip on temp block
         #dest: disengaged mag well
-        #TODO track height changes from liquid in tubestrips on temp plate
+    ):
+        # TODO: track height changes from liquid in tubestrips on temp plate
 
-        #position adjustments have local scope so specific `dest` well can be referenced
+        # position adjustments have local scope so specific `dest` well can be referenced
         _well_300 = dest.top().move(types.Point(
             x=well_300_nomag[0],
             y=well_300_nomag[1],
@@ -348,7 +356,7 @@ def run(protocol: protocol_api.ProtocolContext):
             raise Exception ("cDNA transfer volume must be between 0 and 250ul")
         
         if vol <= 40:
-            #transfer, pull up, blow out, touch liquid line
+            # transfer, pull up, blow out, touch liquid line
             if vol <= 20:
                 for _ in range(1):
                     p20.aspirate(vol, source.bottom(z=0.5))
@@ -376,10 +384,10 @@ def run(protocol: protocol_api.ProtocolContext):
                     p20.move_to(source.top(), speed=4.4)
                     p20.dispense(vol/2, _well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i+1)*(vol/2)))), rate=0.25)
                     protocol.delay(seconds=0.5)
-                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i+1)*(vol/2) + 80))), speed = 4.4)#slowly +Z pipette, pulling droplet out of tip
+                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i+1)*(vol/2) + 80))), speed = 4.4) # slowly +Z pipette, pulling droplet out of tip
                     protocol.delay(seconds=0.5)
-                    p20.blow_out()                                                                              #blows bubble out tip
-                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i)*(vol/2)))))       #merges bubble with liquid surface
+                    p20.blow_out()                                                                              # blows bubble out tip
+                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i)*(vol/2)))))       # merges bubble with liquid surface
                     p20.move_to(dest.top())
             p20.drop_tip()
             p20.pick_up_tip()
@@ -398,16 +406,14 @@ def run(protocol: protocol_api.ProtocolContext):
             p300.blow_out()
             p300.move_to(dest.top())
             p300.drop_tip()
-            #p300.pick_up_tip() #removed so SPRIselect tip may occasionally be used
+            #p300.pick_up_tip() # removed so SPRIselect tip may occasionally be used
 
     def eb_stock_transfer(
         vol: float,
         dest: protocol_api.labware.Well,
-        dest_vol: float):
-
-        global eb_stock_vol
-
-        #position adjustments have local scope so specific `dest` well can be referenced
+        dest_vol: float
+    ):
+        # position adjustments have local scope so specific `dest` well can be referenced
         _well_300 = dest.top().move(types.Point(
             x=well_300_nomag[0],
             y=well_300_nomag[1],
@@ -421,12 +427,12 @@ def run(protocol: protocol_api.ProtocolContext):
             raise Exception ("EB transfer volume must be between 0 and 250ul")
 
         if vol <= 40:
-            #pre-wet
+            # pre-wet
             for _ in range(1):
-                p20.aspirate(20, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol)))
-                p20.dispense(20, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol)))
+                p20.aspirate(20, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'])))
+                p20.dispense(20, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'])))
             if vol <= 20:
-                p20.aspirate(vol, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol - vol)), rate=0.25)
+                p20.aspirate(vol, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'] - vol)), rate=0.25)
                 protocol.delay(seconds=1)
                 p20.move_to(eb_stock.top(), speed=10)
                 p20.dispense(vol, _well_20.move(types.Point(z=getMagWellHeight(dest_vol + vol))), rate=1.0)
@@ -442,15 +448,15 @@ def run(protocol: protocol_api.ProtocolContext):
                 for i in range(2):
                     if i == 1:
                         p20.pick_up_tip()
-                    p20.aspirate(vol/2, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol - i*(vol/2))), rate=0.25)
+                    p20.aspirate(vol/2, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'] - i*(vol/2))), rate=0.25)
                     protocol.delay(seconds=1)
                     p20.move_to(eb_stock.top(), speed=10)
                     p20.dispense(vol/2, _well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i+1)*(vol/2)))), rate=1.0)
                     protocol.delay(seconds=0.5)
-                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i+1)*(vol/2) + 80))), speed = 4.4)   #slowly +Z pipette, pulling droplet out of tip
+                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i+1)*(vol/2) + 80))), speed = 4.4)   # slowly +Z pipette, pulling droplet out of tip
                     protocol.delay(seconds=0.5)
-                    p20.blow_out()                                                                  #blows bubble out tip
-                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i)*(vol/2)))))          #merges bubble with liquid surface
+                    p20.blow_out()                                                                  # blows bubble out tip
+                    p20.move_to(_well_20.move(types.Point(z=getMagWellHeight(dest_vol + (i)*(vol/2)))))          # merges bubble with liquid surface
                     p20.move_to(dest.top())
                     p20.drop_tip()
             p20.pick_up_tip()
@@ -458,9 +464,9 @@ def run(protocol: protocol_api.ProtocolContext):
         else:
             p300.pick_up_tip()
             for _ in range(1):
-                p300.aspirate(vol, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol)))
-                p300.dispense(vol, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol)))
-            p300.aspirate(vol, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol - vol)), rate = 0.2)
+                p300.aspirate(vol, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'])))
+                p300.dispense(vol, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'])))
+            p300.aspirate(vol, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'] - vol)), rate = 0.2)
             protocol.delay(seconds=1)
             p300.move_to(eb_stock.top(), speed=10)
             p300.dispense(vol, _well_300.move(types.Point(z=getMagWellHeight(dest_vol + vol))), rate=0.2)
@@ -470,11 +476,10 @@ def run(protocol: protocol_api.ProtocolContext):
             p300.blow_out()
             p300.move_to(dest.top())
             
-        print("current eb_stock: " + str(eb_stock_vol))
-        eb_stock_vol = eb_stock_vol - vol*8
-        print("subtracted eb_stock: " + str(eb_stock_vol))
+        print("current eb_stock: " + str(STATE['eb_stock_vol']))
+        STATE['eb_stock_vol'] -= vol*8
+        print("subtracted eb_stock: " + str(STATE['eb_stock_vol']))
 
-    #size selection protocol for 96 ring magnet & biorad hard-shell plate
     def sel_96_ring_mag(
         well: protocol_api.labware.Well,
         cDNA: protocol_api.labware.Well,
@@ -495,9 +500,11 @@ def run(protocol: protocol_api.ProtocolContext):
         _w = [], 
         multiplex = bool,
         mag_source = bool,
-        to_mag = bool):
+        to_mag = bool
+    ):
+        """size selection protocol for 96 ring magnet & biorad hard-shell plate"""
 
-        #position adjustments have local scope so specific `dest` well is referenced
+        # position adjustments have local scope so specific `dest` well is referenced
         _well_300_nomag = well.top().move(types.Point(
             x=well_300_nomag[0],
             y=well_300_nomag[1],
@@ -507,7 +514,7 @@ def run(protocol: protocol_api.ProtocolContext):
             y=well_300_mag[1],
             z=well_300_mag[2]))
 
-        #only use if dispensing to mag plate & immedietly call sel_96_ring_mag() on other part of size selection
+        # only use if dispensing to mag plate & immedietly call sel_96_ring_mag() on other part of size selection
         _dest_well_300_mag = dest.top().move(types.Point(
             x=well_300_mag[0],
             y=well_300_mag[1],
@@ -517,7 +524,7 @@ def run(protocol: protocol_api.ProtocolContext):
         mag.disengage()
         
         p20.pick_up_tip()
-        #allows cDNA already placed on mag when mag_source is true
+        # allows cDNA already placed on mag when mag_source is true
         if not mag_source:
             p300.pick_up_tip()
             cDNA_transfer(
@@ -557,8 +564,8 @@ def run(protocol: protocol_api.ProtocolContext):
         p300.drop_tip()
         protocol.delay(seconds=mag_sec)
 
-        #Post Mag Sep
-        if pel:     #trash supernatent, wash pellet, resuspend pellet, incubate 2, then magnet 2
+        # Post Mag Sep
+        if pel:     # trash supernatent, wash pellet, resuspend pellet, incubate 2, then magnet 2
             p300.pick_up_tip()
             if multiplex:
                 p300.aspirate(75, _well_300_mag, rate=0.2)
@@ -573,12 +580,13 @@ def run(protocol: protocol_api.ProtocolContext):
             p300.drop_tip()
 
             eth_wash_drain(
-                    _eth_stock = getEthStock(),
-                    _well = well,
-                    _w = _w)
+                _eth_stock = getEthStock(),
+                _well = well,
+                _w = _w
+            )
 
             print("dry_sec in 96s protocol has elapsed" + str(datetime.datetime.now()))
-            protocol.delay(seconds=dry_sec-39)  #it takes 39 seconds to reach this point after ethanol is removed from pellet
+            protocol.delay(seconds=dry_sec-39)  # it takes 39 seconds to reach this point after ethanol is removed from pellet
             mag.disengage()
             eb_stock_transfer(
                 vol = eb_vol,
@@ -591,7 +599,7 @@ def run(protocol: protocol_api.ProtocolContext):
                 _inc_sec = inc_sec_2,
                 _mag_sec = mag_sec_2)
         
-        #required regardless of pellet resuspension or not: transfers supernatent to specified location (likely temp block)
+        # required regardless of pellet resuspension or not: transfers supernatent to specified location (likely temp block)
         #TODO: dispense at liquid level on temp block tubestrip
 
         if to_mag:
@@ -631,19 +639,20 @@ def run(protocol: protocol_api.ProtocolContext):
                     _blow_pos = dest.top(),
                     _reps = 1)
         p20.drop_tip()
-        mag.disengage() #magnet will be engaged if pel is True 
+        mag.disengage() # magnet will be engaged if pel is True 
     
     ## END HELPER FUNCTIONS ##
 
-    '''
-    _well:              new magnet well to mix in
-    _tc_dest:           TC well destination
-    _amp_rxn_mix_stock: amp rxn mix stock on ice (prepped but not mixed)
-    '''
     def dyn_cleanup_amplification(
         _well: protocol_api.labware.Well,
         _tc_dest: protocol_api.labware.Well,
-        _amp_rxn_mix_stock: protocol_api.labware.Well):
+        _amp_rxn_mix_stock: protocol_api.labware.Well
+    ):
+        """
+        _well:              new magnet well to mix in
+        _tc_dest:           TC well destination
+        _amp_rxn_mix_stock: amp rxn mix stock on ice (prepped but not mixed)
+        """
         
         print("Load 90ul GEM sample in: " + str(_well))
         print("Add 125ul pink recovery agent to 90ul GEM sample in: " + str(_well))
@@ -657,7 +666,7 @@ def run(protocol: protocol_api.ProtocolContext):
         print("    do not aspirate aqueous sample")
         input("press enter to continue...")
 
-        #positions referencing specific _well
+        # positions referencing specific _well
         _well_300_nomag = _well.top().move(types.Point(
             x=well_300_nomag[0],
             y=well_300_nomag[1],
@@ -698,13 +707,13 @@ def run(protocol: protocol_api.ProtocolContext):
         
         eth_wash_drain(getEthStock(), _well, _w=[260,250])
 
-        protocol.delay(seconds=30)  #exactly 1-minute after ethanol is removed from pellet (10x protocol)
+        protocol.delay(seconds=30)  # exactly 1-minute after ethanol is removed from pellet (10x protocol)
 
         mag.disengage()
 
         vol = 36
         for i in range(2):
-            p20.aspirate(vol/2, elu_sol_1.bottom(z=getEppendorf_1_5Height(elu_stock_vol - i*(vol/2))), rate=1)
+            p20.aspirate(vol/2, elu_sol_1.bottom(z=getEppendorf_1_5Height(STATE['elu_stock_vol'] - i*(vol/2))), rate=1)
             p20.dispense(vol/2, _well_300_nomag.move(types.Point(z=getMagWellHeight((i+1)*(vol/2)))), rate=1)
             p20.move_to(_well_300_nomag.move(types.Point(z=getMagWellHeight((i+1)*(vol/2) + 40))), speed = 4.4)   #slowly +Z pipette, pulling droplet out of tip
             p20.blow_out()                                                                      #blows bubble out tip
@@ -727,10 +736,10 @@ def run(protocol: protocol_api.ProtocolContext):
         p300.drop_tip()
         mag.engage(height=mag_z)
 
-        #lid open takes between 28 and 4 seconds, plenty of time for mag sep in small volume
+        # lid open takes between 28 and 4 seconds, plenty of time for mag sep in small volume
         tc.open_lid()
 
-        #amp_mix_into_tc
+        # amp_mix_into_tc
         p300.pick_up_tip()
         for _ in range(30):
             p300.aspirate(40, _amp_rxn_mix_stock.bottom(z=0.5))
@@ -746,10 +755,10 @@ def run(protocol: protocol_api.ProtocolContext):
         p300.drop_tip()
         p300.pick_up_tip()
 
-        #duration: 1:06
+        # duration: 1:06
         _sup_vol = 17.5
         _sup_rep = 2
-        #transfer supernatent (_well must be magnet well)
+        # transfer supernatent (_well must be magnet well)
         vacuum_aspirate_transfer(
             _asp_pos=_well_300_mag,
             _asp_spd=0.2,
@@ -771,12 +780,12 @@ def run(protocol: protocol_api.ProtocolContext):
         p300.blow_out()
         p300.drop_tip()
 
-        #start: 58:54
+        # start: 58:54
         cdna_amp_pcr_loop_prof = [
             {"temperature": 98, "hold_time_seconds": 15},
             {"temperature": 63, "hold_time_seconds": 20},
             {"temperature": 72, "hold_time_seconds": 60}
-        ] #11 cycles if sampling large number of cells, 12 cycles if small (<12,000 targeted cell recov. per GEM well)
+        ] # 11 cycles if sampling large number of cells, 12 cycles if small (<12,000 targeted cell recov. per GEM well)
         
         tc.close_lid()
         print("bringing lid to temp: " + str(datetime.datetime.now()))
@@ -791,21 +800,21 @@ def run(protocol: protocol_api.ProtocolContext):
         tc.set_block_temperature(4)
         print("opening lid: " + str(datetime.datetime.now()))
         tc.open_lid()
-        #end: 1:42:28
-        #iteration_8 duration: 44:34
+        # end: 1:42:28
+        # iteration_8 duration: 44:34
 
 
-
-    '''
-    _tc_source:     _tc_dest of dyn_cleanup_amplification
-    _well:          new magnet well to mix in
-    _purified_cDNA: destination on temp plate for final product of 2.3A
-    ''' 
     def cDNA_cleanup_pellet_cleanup(
         _tc_source: protocol_api.labware.Well,
         _well: protocol_api.labware.Well,
         _purified_cDNA: protocol_api.labware.Well,
-        _multiplex: bool):
+        _multiplex: bool
+    ):
+        """
+        _tc_source:     _tc_dest of dyn_cleanup_amplification
+        _well:          new magnet well to mix in
+        _purified_cDNA: destination on temp plate for final product of 2.3A
+        """
 
         sel_96_ring_mag(
             well = _well,
@@ -854,31 +863,32 @@ def run(protocol: protocol_api.ProtocolContext):
                 to_mag = False,
             )
 
-    '''
-    _frag_mix is frag buffer & enzyme added to same well on temp plate @4C (tranferred to TC, then mixed)
-    _frag_mix_tc is destination for cDNA mix on TC plate
-    _purified_cDNA is destination on temp plate for final product of 2.3A
-    EB buffer stock
-    _treated_cDNA is magnet well for post-tc _frag_mix_tc solution
-    _size_sel_0_cDNA is _treated_cDNA, after one round of SPRIselect
-    _ada_lig_mix is final destination of _size_sel_cDNA for ada_lig_cleanup next step (temp plate)
-                 is already prepped on ice with lig buffer, dna ligase, and ada oligo (unmixed)
-    '''
     def frag_end_repair_a_tailing_size_sel(
         _frag_mix: protocol_api.labware.Well,
         _frag_mix_tc: protocol_api.labware.Well,
         _purified_cDNA: protocol_api.labware.Well,
         _treated_cDNA: protocol_api.labware.Well,
-        _size_sel_0_cDNA: protocol_api.labware.Well):
+        _size_sel_0_cDNA: protocol_api.labware.Well
+    ):
+        """
+        _frag_mix is frag buffer & enzyme added to same well on temp plate @4C (tranferred to TC, then mixed)
+        _frag_mix_tc is destination for cDNA mix on TC plate
+        _purified_cDNA is destination on temp plate for final product of 2.3A
+        EB buffer stock
+        _treated_cDNA is magnet well for post-tc _frag_mix_tc solution
+        _size_sel_0_cDNA is _treated_cDNA, after one round of SPRIselect
+        _ada_lig_mix is final destination of _size_sel_cDNA for ada_lig_cleanup next step (temp plate)
+                    is already prepped on ice with lig buffer, dna ligase, and ada oligo (unmixed)
+        """
 
-        #tc already pre-cooled, open from dyn_cleanup_amplification
+        # tc already pre-cooled, open from dyn_cleanup_amplification
         print("pre-cooling tc block to 4C if not already pre-cooled: " + str(datetime.datetime.now()))
         tc.set_block_temperature(4)
         print("opening lid: " + str(datetime.datetime.now()))
         tc.open_lid()
 
         p20.pick_up_tip()
-        p20.aspirate(15, eb_stock.bottom(z=getEppendorf_1_5Height(eb_stock_vol - 15)), rate=0.25)
+        p20.aspirate(15, eb_stock.bottom(z=getEppendorf_1_5Height(STATE['eb_stock_vol'] - 15)), rate=0.25)
         protocol.delay(seconds=1)
         p20.move_to(eb_stock.top(), speed=10)
         p20.dispense(15, _frag_mix_tc.bottom(z=0.2), rate=1.0)
@@ -927,7 +937,7 @@ def run(protocol: protocol_api.ProtocolContext):
         p300.touch_tip()
         p300.drop_tip()
         
-        #iteration_8 start: 2:14:00
+        # iteration_8 start: 2:14:00
         print("bringing lid to temp: " + str(datetime.datetime.now()))
         tc.set_lid_temperature(65)
         print("closing lid: " + str(datetime.datetime.now()))
@@ -938,13 +948,13 @@ def run(protocol: protocol_api.ProtocolContext):
         tc.set_block_temperature(65, hold_time_minutes=30, block_max_volume=50)
         print("done, starting to cool block: " + str(datetime.datetime.now()))
         tc.set_block_temperature(4)
-        #3:03:20  
+        # 3:03:20  
         print("opening lid: " + str(datetime.datetime.now()))
         tc.open_lid()
-        #3:04:08 
+        # 3:04:08 
         print("pre-cooling lid for next step: " + str(datetime.datetime.now()))
         tc.set_lid_temperature(37)
-        #iteration_8 end: 3:31:00  30 minute lid temp change????!!?
+        # iteration_8 end: 3:31:00  30 minute lid temp change????!!?
 
         sel_96_ring_mag(
             well = _treated_cDNA,
@@ -992,14 +1002,15 @@ def run(protocol: protocol_api.ProtocolContext):
             to_mag = False
         )
     
-    '''
-    _ada_lig_mix is 50ul final product of previous frag_end_repair_a_tailing_size_sel step
-                    50ul adaptor ligation mix (unmixed) prepared within well previous step
-    _ada_lig_mix_tc is tc destination for mixed 100ul _ada_lig_mix, prev step product
-    '''
     def ada_lig_cleanup(
         _ada_lig_mix: protocol_api.labware.Well,
-        _ada_lig_mix_tc: protocol_api.labware.Well):
+        _ada_lig_mix_tc: protocol_api.labware.Well
+    ):
+        """
+        _ada_lig_mix is 50ul final product of previous frag_end_repair_a_tailing_size_sel step
+                    50ul adaptor ligation mix (unmixed) prepared within well previous step
+        _ada_lig_mix_tc is tc destination for mixed 100ul _ada_lig_mix, prev step product
+        """
 
         print("bringing block to 20C")
         tc.set_block_temperature(20)
@@ -1020,7 +1031,7 @@ def run(protocol: protocol_api.ProtocolContext):
         p300.touch_tip()
         p300.drop_tip()
         p20.pick_up_tip()
-        #fetch remaining 10ul, + extra volume if accuracy is not perfect
+        # fetch remaining 10ul, + extra volume if accuracy is not perfect
         vacuum_aspirate_transfer(
             _asp_pos=_ada_lig_mix.bottom(),
             _asp_spd=1.0,
@@ -1063,18 +1074,19 @@ def run(protocol: protocol_api.ProtocolContext):
             to_mag = False
         )
 
-    '''
-    _samp_index_pcr is tc location of final product from previous step
-                    is not yet mixed with Amp mix or dual index TT set A
-    _amp_mix is >=50ul amp mix stock on temp plate
-    _dual_ind_tt_set_a is pre-aliquotted onto temp plate
-    '''
     def index_pcr_size_sel(
         _samp_index_pcr: protocol_api.labware.Well,
-        _dual_ind_tt_set_a: protocol_api.labware.Well):
+        _dual_ind_tt_set_a: protocol_api.labware.Well
+    ):
+        """
+        _samp_index_pcr is tc location of final product from previous step
+                    is not yet mixed with Amp mix or dual index TT set A
+        _amp_mix is >=50ul amp mix stock on temp plate
+        _dual_ind_tt_set_a is pre-aliquotted onto temp plate
+        """
 
         p20.pick_up_tip()
-        #TODO: centralize Amp mix location on temp block, use for amp_rxn_mix prep
+        # TODO: centralize Amp mix location on temp block, use for amp_rxn_mix prep
         vacuum_aspirate_transfer(
             _asp_pos=postlig_cleanup.bottom(z=0.1),
             _asp_spd=0.2,
@@ -1129,13 +1141,13 @@ def run(protocol: protocol_api.ProtocolContext):
                 else:
                     print("invalid input")
 
-        #sample index PCR
+        # sample index PCR
         amp_ind_pcr_loop_prof = [
             {'temperature': 98, 'hold_time_seconds': 20},
             {'temperature': 54, 'hold_time_seconds': 30},
             {'temperature': 72, 'hold_time_seconds': 20}
         ]
-        #iteration_8 start: 44:15
+        # iteration_8 start: 44:15
         print("bringing block to temp: " + str(datetime.datetime.now()))
         tc.set_block_temperature(98, hold_time_seconds=45, block_max_volume=100)
         print("entering loop for " + str(_cycles) + "~70sec reps: " + str(datetime.datetime.now()))
@@ -1146,7 +1158,7 @@ def run(protocol: protocol_api.ProtocolContext):
         tc.set_block_temperature(4)
         print("opening lid: " + str(datetime.datetime.now()))
         tc.open_lid()
-        #iteration_8 end: 1:27:23
+        # iteration_8 end: 1:27:23
 
         sel_96_ring_mag(
             well = indexed_cDNA,
@@ -1196,7 +1208,7 @@ def run(protocol: protocol_api.ProtocolContext):
 
     def multiplex_index_pcr_size_sel():
         p20.pick_up_tip()
-        #TODO: centralize Amp mix location on temp block, use for amp_rxn_mix prep
+        # TODO: centralize Amp mix location on temp block, use for amp_rxn_mix prep
         vacuum_aspirate_transfer(
             _asp_pos=multiplex_cln.bottom(z=0.1),
             _asp_spd=0.2,
@@ -1236,7 +1248,7 @@ def run(protocol: protocol_api.ProtocolContext):
         print("closing lid: " + str(datetime.datetime.now()))
         tc.close_lid()
 
-        #multiplex index PCR
+        # multiplex index PCR
         amp_multi_index_pcr_loop_prof = [
             {'temperature': 98, 'hold_time_seconds': 20},
             {'temperature': 54, 'hold_time_seconds': 30},
@@ -1278,7 +1290,7 @@ def run(protocol: protocol_api.ProtocolContext):
         )
 
     ## STONKS ##
-    #TODO: remove tip height adjustment for these stock well
+    # TODO: remove tip height adjustment for these stock well
     spri_stock  = r15['A3']
     eb_stock    = r15['A4']
     elu_sol_1   = r15['A5']
@@ -1297,7 +1309,7 @@ def run(protocol: protocol_api.ProtocolContext):
     size_sel_0_ind_cDNA = mag_plate['A6']   #3.6 size sel 1
     mult_cleanup        = mag_plate['A5']
     mult_size_sel       = mag_plate['A4']
- 
+
     cDNA_amp_tc         = tc_plate['A5']
     frag_mix_tc         = tc_plate['A6']
     ada_lig_mix_tc      = tc_plate['A7']
@@ -1346,7 +1358,8 @@ def run(protocol: protocol_api.ProtocolContext):
     dyn_cleanup_amplification(
         _well               = dyn_cleanup,
         _tc_dest            = cDNA_amp_tc,
-        _amp_rxn_mix_stock  = amp_rxn_mix)
+        _amp_rxn_mix_stock  = amp_rxn_mix
+    )
     
     #est: 0h:17m
     input("press enter to proceed to: cDNA_cleanup_pellet_cleanup")
@@ -1354,7 +1367,8 @@ def run(protocol: protocol_api.ProtocolContext):
         _tc_source          = cDNA_amp_tc,
         _well               = cDNA_cleanup,
         _purified_cDNA      = purified_cDNA,
-        _multiplex          = multiplex)
+        _multiplex          = multiplex
+    )
     
     #est: 1h:11m
     print("prepare step 3 reagents, place at proper locations on temp block")
@@ -1368,19 +1382,22 @@ def run(protocol: protocol_api.ProtocolContext):
         _frag_mix_tc        = frag_mix_tc,
         _purified_cDNA      = purified_cDNA,
         _treated_cDNA       = treated_cDNA,
-        _size_sel_0_cDNA    = size_sel_0_cDNA)
+        _size_sel_0_cDNA    = size_sel_0_cDNA
+    )
     
     #est: 0h:45m 
     #input("press enter to proceed to: ada_lig_cleanup")
     ada_lig_cleanup(
         _ada_lig_mix        = ada_lig_mix,
-        _ada_lig_mix_tc     = ada_lig_mix_tc)
+        _ada_lig_mix_tc     = ada_lig_mix_tc
+    )
 
     #est: 0h:53m
     #input("press enter to proceed to: index_pcr_size_sel")
     index_pcr_size_sel(
         _samp_index_pcr     = samp_index_pcr,
-        _dual_ind_tt_set_a     = dual_ind_tt_set_a)
+        _dual_ind_tt_set_a  = dual_ind_tt_set_a
+    )
     
     if multiplex:
         multiplex_index_pcr_size_sel()
