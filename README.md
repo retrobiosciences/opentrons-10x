@@ -3,12 +3,24 @@
 Manual single cell library preps are tedious and error-prone. Automated solutions cost >$260k. This repo contains all code & hardware required to automate 10x Genomics library preps on Opentrons for $26k.
 
 <p align="center">
-	<img src="https://github.com/retrobiosciences/opentrons-10x/blob/main/homebrew-connect.jpeg" alt="homebrew connect" width="500px">
+	<img src="./img/homebrew-connect.jpeg" alt="homebrew connect" width="500px">
 </p>
 
-Protocol:
-------
+Table of Contents
+=================
+* [Protocol](#protocol)
+* [Required modifications](#required-modifications)
+* [Modules](#modules)
+* [Labware](#labware)
+* [Pipettes](#pipettes)
+* [Reagents](#reagents)
+* [Optional](#optional)
+* [Deck Setup](#deck-setup)
+* [Economic Efficiency](#economic-efficiency)
+* [Library prep quality](#library-prep-quality)
 
+
+## Protocol
 Prepping 8 libraries involves ~2 hours of human labor[^1]. 
 
 Step 1: GEM Generation & Barcoding
@@ -29,15 +41,15 @@ Step 3: (4:30-5:00)
 - Return within 24 hours and retrieve prepared sample (held at 4C indefinitely)
 - Submit sample for sequencing!
 
-### Required modifications:
+## Required modifications
 - [Opentrons Superior Magnet Module](https://github.com/retrobiosciences/opentrons-superior-magnet)
 
-### Modules:
+## Modules
 - Thermocycler Module
 - Magnetic Module
 - Temperature Module
 
-### Labware:
+## Labware
 - 96-well aluminum block
 - Bio-Rad Hard-Shell 96-Well PCR Plate, high profile, semi skirted #HSS9601 (2x)
 - NEST 0.1ul PCR plate full-skirt
@@ -45,17 +57,17 @@ Step 3: (4:30-5:00)
 - Opentrons 20ul Tips (2-3x)
 - 12-well reagent trough
 
-### Pipettes:
+## Pipettes
 - P300 8-channel
 - P20 8-channel
 
-### Reagents:
+## Reagents
 - [10x 3' medium throughput v3.1](https://www.10xgenomics.com/support/single-cell-gene-expression/documentation/steps/library-prep/chromium-next-gem-single-cell-3-v-3-1-dual-index-libraries)
 
-### Optional:
+## Optional
 - [Pipette cam](https://github.com/retrobiosciences/opentrons-pipette-cam) (log liquid transfer errors!)[^3]
 
-### Deck Setup:
+## Deck Setup
 opentrons | deck | setup
 --- | --- | ---
 10: thermocycler| 11: P300 tips| trash
@@ -63,13 +75,13 @@ opentrons | deck | setup
 4: mag module | 5: P300 tips | 6: P20 tips
 1: temp module | 2: P300 tips | 3: 12-well trough
 
-### Economic Efficiency:
- platform | hardware cost | servicing contract | throughput 
- --- | --- | --- | ---
- 10x Chromium Connect | $260k | yes | 24-samples/day
- Opentrons| $26k | no | 32-samples/day
- 
-### Library prep quality:
+## Economic Efficiency
+platform | hardware cost | servicing contract | throughput 
+--- | --- | --- | ---
+10x Chromium Connect | $260k | yes | 24-samples/day
+Opentrons| $26k | no | 32-samples/day
+
+## Library prep quality
 bioanalyzer trace for step 2, step 3
 
 sequencing results
