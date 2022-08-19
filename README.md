@@ -1,6 +1,6 @@
 # OT-2 10x scRNA seq library prep (with multiplexing!)
 
-Manual single cell library preps are tedious and error-prone. Automated solutions cost >$200k. This repo contains all code & hardware required to automate 10x Genomics library preps on Opentrons for $26k.
+Manual single cell library preps are tedious and error-prone. Automated solutions cost >$260k. This repo contains all code & hardware required to automate 10x Genomics library preps on Opentrons for $26k.
 
 <p align="center">
 	<img src="https://github.com/retrobiosciences/opentrons-10x/blob/main/homebrew-connect.jpeg" alt="homebrew connect" width="500px">
