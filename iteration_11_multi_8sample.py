@@ -244,11 +244,9 @@ def run(protocol: protocol_api.ProtocolContext):
             p300.touch_tip()
             p300.blow_out()
         p300.touch_tip()
-
         p300.return_tip()
         p300.pick_up_tip()
             
-
     def spri_stock_mix_transfer(
         vol: float,
         dest: protocol_api.labware.Well,
@@ -634,8 +632,8 @@ def run(protocol: protocol_api.ProtocolContext):
                     _reps = 1)
         p20.drop_tip()
         mag.disengage() #magnet will be engaged if pel is True 
+    
     ## END HELPER FUNCTIONS ##
-
 
     '''
     _well:              new magnet well to mix in
@@ -1075,7 +1073,6 @@ def run(protocol: protocol_api.ProtocolContext):
         _samp_index_pcr: protocol_api.labware.Well,
         _dual_ind_tt_set_a: protocol_api.labware.Well):
 
-        
         p20.pick_up_tip()
         #TODO: centralize Amp mix location on temp block, use for amp_rxn_mix prep
         vacuum_aspirate_transfer(
@@ -1198,7 +1195,6 @@ def run(protocol: protocol_api.ProtocolContext):
         )
 
     def multiplex_index_pcr_size_sel():
-
         p20.pick_up_tip()
         #TODO: centralize Amp mix location on temp block, use for amp_rxn_mix prep
         vacuum_aspirate_transfer(
@@ -1331,41 +1327,34 @@ def run(protocol: protocol_api.ProtocolContext):
     multiplex_ind_pcr   = temp_plate['A7']      #  50ul amp mix
                                                 #  20ul eb
 
-    ## RE-USED TIPS ##
+    ## REUSED TIPS ##
     spri_tip = t300_0['A1']
     
-
     #| tc |t300|
     #| tc |t300|temp|
     #|magm|t300|resv|
     #| t20| t20|t300|
 
-
     #temp:
     #|amp_rxn_mix|frag_mix|ada_lig_mix|amp_mix|dual_ind_tt_set_a|dual_ind_nn_set_a|multiplex_ind_pcr|postlig_cleanup|multiplex_cln|multiplex_fin|purified_cDNA|final_product|
-
-    #resv:
-    #|spri| eb | eth|    |    |    |    |    |    |    |    |    |
-
-    
     
     ## REAGENTS NEEDED, OPEN ##
     print("reagents are open...")
 
     #est: 0h:49m
     input("press enter to proceed to: dyn_cleanup_amplification")
-    #dyn_cleanup_amplification(
-    #    _well               = dyn_cleanup,
-    #    _tc_dest            = cDNA_amp_tc,
-    #    _amp_rxn_mix_stock  = amp_rxn_mix)
+    dyn_cleanup_amplification(
+        _well               = dyn_cleanup,
+        _tc_dest            = cDNA_amp_tc,
+        _amp_rxn_mix_stock  = amp_rxn_mix)
     
     #est: 0h:17m
-    #input("press enter to proceed to: cDNA_cleanup_pellet_cleanup")
-    #cDNA_cleanup_pellet_cleanup(
-    #    _tc_source          = cDNA_amp_tc,
-    #    _well               = cDNA_cleanup,
-    #    _purified_cDNA      = purified_cDNA,
-    #    _multiplex          = multiplex)
+    input("press enter to proceed to: cDNA_cleanup_pellet_cleanup")
+    cDNA_cleanup_pellet_cleanup(
+        _tc_source          = cDNA_amp_tc,
+        _well               = cDNA_cleanup,
+        _purified_cDNA      = purified_cDNA,
+        _multiplex          = multiplex)
     
     #est: 1h:11m
     print("prepare step 3 reagents, place at proper locations on temp block")
