@@ -78,8 +78,8 @@ opentrons | deck | setup
 ## Economic Efficiency
 platform | hardware cost | servicing contract | throughput 
 --- | --- | --- | ---
-10x Chromium Connect | $260k | yes | 24-samples/day
-Opentrons| $26k | no | 32-samples/day
+10x Chromium Connect | $260k | yes | 24 samples/day
+Opentrons| $26k | no | 32 samples/day
 
 ## Library prep quality
 sequencing results coming soon™
