@@ -9,6 +9,7 @@ Manual single cell library preps are tedious and error-prone. Automated solution
 Table of Contents
 =================
 * [Protocol](#protocol)
+* [Results](#results)
 * [Required modifications](#required-modifications)
 * [Modules](#modules)
 * [Labware](#labware)
@@ -41,13 +42,41 @@ Step 3: (4:30-5:00)
 - Return within 24 hours and retrieve prepared sample (held at 4C indefinitely)
 - Submit sample for sequencing!
 
+
+## Results
+
+To showcase the performance of the automated protocol we generated multiple QC plots.
+
+### Number of reads
+
+Automated             |  Manual
+:-------------------------:|:-------------------------:
+![](./img/num_reads_auto.png)  |  ![](./img/num_reads_man.png)
+
+
+### Quality scores
+
+Automated             |  Manual
+:-------------------------:|:-------------------------:
+![](./img/quality_scores_auto.png)  |  ![](./img/quality_scores_man.png)
+
+
+### scVI integration
+
+[scVI](https://www.nature.com/articles/s41592-018-0229-2) is the de-facto [standard method](https://docs.scvi-tools.org/en/stable/tutorials/notebooks/api_overview.html) for correcting technical batch effects in single-cell data. Here, we applied it using manual/automated as our batch variables and plotted the resulting integration. If nothing but technical noise distinguishes our two samples, we expect to see perfect overlap.
+
+![](./img/scvi_automated_v_manual.png)
+
+
 ## Required modifications
 - [Opentrons Superior Magnet Module](https://github.com/retrobiosciences/opentrons-superior-magnet)
+
 
 ## Modules
 - Thermocycler Module
 - Magnetic Module
 - Temperature Module
+
 
 ## Labware
 - 96-well aluminum block
@@ -57,15 +86,19 @@ Step 3: (4:30-5:00)
 - Opentrons 20ul Tips (2-3x)
 - 12-well reagent trough
 
+
 ## Pipettes
 - P300 8-channel
 - P20 8-channel
 
+
 ## Reagents
 - [10x 3' medium throughput v3.1](https://www.10xgenomics.com/support/single-cell-gene-expression/documentation/steps/library-prep/chromium-next-gem-single-cell-3-v-3-1-dual-index-libraries)
 
+
 ## Optional
 - [Pipette cam](https://github.com/retrobiosciences/opentrons-pipette-cam) (log liquid transfer errors!)[^3]
+
 
 ## Deck Setup
 opentrons | deck | setup
@@ -75,14 +108,18 @@ opentrons | deck | setup
 4: mag module | 5: P300 tips | 6: P20 tips
 1: temp module | 2: P300 tips | 3: 12-well trough
 
+
 ## Economic Efficiency
 platform | hardware cost | servicing contract | throughput 
 --- | --- | --- | ---
-10x Chromium Connect | $260k | yes | 24 samples/day
-Opentrons| $26k | no | 32 samples/day
+10x Chromium Connect | $260k | yes | 24-samples/day
+Opentrons| $26k | no | 32-samples/day
+
 
 ## Library prep quality
-sequencing results coming soon™
+bioanalyzer trace for step 2, step 3
+
+sequencing results
 
 [^1]: Running 8 robots for a year, a company can reasonably expect to spend $70 million in reagents and sequence 300M-1.4B single cells.
 [^2]: Skipping quantification step for samples with consistent cDNA recovery allows completion of step 2 & 3 uninterrupted. Works great most of the time! Multiplexing always requires P300 tip reload. Tip usage can be further optimized 
