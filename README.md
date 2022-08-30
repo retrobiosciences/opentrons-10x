@@ -116,11 +116,6 @@ platform | hardware cost | servicing contract | throughput
 Opentrons| $26k | no | 32-samples/day
 
 
-## Library prep quality
-bioanalyzer trace for step 2, step 3
-
-sequencing results
-
 [^1]: Running 8 robots for a year, a company can reasonably expect to spend $70 million in reagents and sequence 300M-1.4B single cells.
 [^2]: Skipping quantification step for samples with consistent cDNA recovery allows completion of step 2 & 3 uninterrupted. Works great most of the time! Multiplexing always requires P300 tip reload. Tip usage can be further optimized 
 [^3]: I want to control the pipette with camera input. So much closed-loop precision at our fingertips!
