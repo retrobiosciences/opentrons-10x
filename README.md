@@ -1,5 +1,11 @@
 # OT-2 10x scRNA seq library prep (with multiplexing!)
 
+---
+- This protocol is difficult to get working properly
+- The OT-2 & related consumables have issues making this especially difficult
+- Please contact Ben at ben@retro.bio before attempting this for yourself
+---
+
 Manual single cell library preps are tedious and error-prone. Automated solutions cost >$260k. This repo contains all code & hardware required to automate 10x Genomics library preps on Opentrons for $26k.
 
 <p align="center">
