@@ -2,7 +2,7 @@
 
 ---
 - This protocol is difficult to get working properly
-- The OT-2 p20 pipette tips are not always straight, making magnet separation using especially difficult on stock p20 tips
+- The OT-2 p20 pipette tips are not always straight, making magnet separation especially difficult with stock p20 tips
 - Please contact ben at ben@retro.bio before attempting this for yourself
 ---
 
