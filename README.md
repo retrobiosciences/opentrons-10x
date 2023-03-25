@@ -2,8 +2,8 @@
 
 ---
 - This protocol is difficult to get working properly
-- The OT-2 & related consumables have issues making this especially difficult
-- Please contact Ben at ben@retro.bio before attempting this for yourself
+- The OT-2 p20 pipette tips are not always straight, making magnet separation using especially difficult on stock p20 tips
+- Please contact ben at ben@retro.bio before attempting this for yourself
 ---
 
 Manual single cell library preps are tedious and error-prone. Automated solutions cost >$260k. This repo contains all code & hardware required to automate 10x Genomics library preps on Opentrons for $26k.
